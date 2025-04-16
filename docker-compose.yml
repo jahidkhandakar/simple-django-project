@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    platform: linux/amd64  # Ensure compatibility with MySQL on ARM hosts
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: world
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./world.sql:/docker-entrypoint-initdb.d/world.sql
+    ports:
+      - "3306:3306"
+    networks:
+      - appnet
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_NAME: world
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_HOST: db
+      DB_PORT: 3306
+    volumes:
+      - .:/app
+    networks:
+      - appnet
+    # Important for file change detection in development
+    command: ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+
+volumes:
+  mysql_data:
+
+networks:
+  appnet:
